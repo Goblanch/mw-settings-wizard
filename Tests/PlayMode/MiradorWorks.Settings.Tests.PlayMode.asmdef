@@ -1,0 +1,31 @@
+{
+    "name": "MiradorWorks.Settings.Tests.PlayMode",
+    "rootNamespace": "MiradorWorks.Settings.Tests.PlayMode",
+    "references": [
+        "MiradorWorks.Settings",
+        "MiradorWorks.Settings.URP",
+        "Unity.Localization",
+        "Unity.RenderPipelines.Core.Runtime",
+        "Unity.RenderPipelines.Universal.Runtime",
+        "UnityEngine.TestRunner"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "nunit.framework.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
+    "versionDefines": [
+        {
+            "name": "com.unity.render-pipelines.universal",
+            "expression": "17.0.0",
+            "define": "MW_SETTINGS_URP"
+        }
+    ],
+    "noEngineReferences": false
+}

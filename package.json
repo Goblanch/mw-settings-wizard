@@ -1,0 +1,20 @@
+{
+    "name": "com.miradorworks.settings",
+    "version": "0.1.0",
+    "displayName": "MiradorWorks Settings Wizard",
+    "description": "Modular game settings system: pick only the settings your game needs, add your own by inheriting from a base class, and connect any save system. Includes display and URP graphics settings.",
+    "unity": "6000.0",
+    "author": {
+        "name": "Mirador Works"
+    },
+    "keywords": [
+        "settings",
+        "options",
+        "graphics",
+        "urp",
+        "miradorworks"
+    ],
+    "dependencies": {
+        "com.unity.localization": "1.5.9"
+    }
+}
