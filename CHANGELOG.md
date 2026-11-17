@@ -13,3 +13,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - README (Spanish and English) and changelog.
 - Package manifest and assembly definitions (core, optional URP, editor and tests).
 - CI workflow with GameCI running EditMode and PlayMode tests on a dedicated URP test project.
+- Setting definitions: `SettingDefinition<T>` and the `ToggleSetting`, `RangeSetting` and `ChoiceSetting` base types, plus `ChoiceOption`, `SettingCategory` and `ApplyMode`.
