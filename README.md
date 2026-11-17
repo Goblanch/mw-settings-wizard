@@ -84,14 +84,10 @@ public sealed class GameBootstrap : MonoBehaviour
 ```csharp
 using MiradorWorks.Settings;
 using UnityEngine;
- 
+
 [CreateAssetMenu(menuName = "Mirador Works/Settings/Motion Blur")]
 public sealed class MotionBlurSetting : ToggleSetting
 {
-    [SerializeField] bool defaultValue = true;
- 
-    public override bool GetDefault(SettingsContext context) => defaultValue;
- 
     public override void Apply(bool value, SettingsApplyContext context)
     {
         // Enable or disable motion blur in your game.
@@ -212,14 +208,10 @@ public sealed class GameBootstrap : MonoBehaviour
 ```csharp
 using MiradorWorks.Settings;
 using UnityEngine;
- 
+
 [CreateAssetMenu(menuName = "Mirador Works/Settings/Motion Blur")]
 public sealed class MotionBlurSetting : ToggleSetting
 {
-    [SerializeField] bool defaultValue = true;
- 
-    public override bool GetDefault(SettingsContext context) => defaultValue;
- 
     public override void Apply(bool value, SettingsApplyContext context)
     {
         // Enable or disable motion blur in your game.
