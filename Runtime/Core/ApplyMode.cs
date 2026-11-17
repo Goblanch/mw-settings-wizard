@@ -4,7 +4,7 @@ namespace MiradorWorks.Settings
     public enum ApplyMode
     {
         /// <summary>Applied as soon as the value changes./// </summary>
-        Inmediate,
+        Immediate,
         /// <summary>Kept as pending until the service applies pending changes./// </summary>
         Deferred
     }

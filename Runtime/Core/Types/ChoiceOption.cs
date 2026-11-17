@@ -9,7 +9,7 @@ namespace MiradorWorks.Settings
         ChoiceOption(string key, LocalizedString localizedLabel, string rawLabel)
         {
             if (string.IsNullOrEmpty(key))
-                throw new ArgumentNullException("Option cannot be null or empty.", nameof(key));
+                throw new ArgumentException("Option cannot be null or empty.", nameof(key));
 
             Key = key;
             LocalizedLabel = localizedLabel;

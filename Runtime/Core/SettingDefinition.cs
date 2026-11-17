@@ -14,7 +14,7 @@ namespace MiradorWorks.Settings
         [SerializeField] LocalizedString label = new LocalizedString();
         [SerializeField] LocalizedString description = new LocalizedString();
         [SerializeField] SettingCategory category;
-        [SerializeField] ApplyMode applyMode = ApplyMode.Inmediate;
+        [SerializeField] ApplyMode applyMode = ApplyMode.Immediate;
         [SerializeField] bool requiresConfirmation;
 
         // Only SettingDefinition<T> (same assembly) can inherit directly.
