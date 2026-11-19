@@ -32,5 +32,10 @@ namespace MiradorWorks.Settings
 
         /// <summary>Whether the setting can be used on this platfotm or configuration./// </summary>
         public virtual bool IsSupported(SettingsContext context) => true;
+
+        /// <summary>
+        /// Creates the typed runtime state the service keeps for this setting.
+        /// </summary>
+        internal abstract SettingSlot CreateSlot();
     }
 }
