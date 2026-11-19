@@ -50,7 +50,7 @@ namespace MiradorWorks.Settings
 
             this.profile = profile;
             this.storage = storage ?? throw new ArgumentNullException(nameof(storage));
-            Context = new SettingsContext();
+            Context = new SettingsContext(this);
         }
 
         /// <summary>The value returned by Get changed (applied, pending, reverted or reset)./// </summary>
