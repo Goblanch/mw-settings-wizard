@@ -69,7 +69,7 @@ namespace MiradorWorks.Settings
 
                 if (assetsById.TryGetValue(setting.Id, out SettingDefinition other))
                 {
-                    errors.Add($"Duplicate id '{setting.Id}' in '{other.Id}' and '{setting.name}'.");
+                    errors.Add($"Duplicate id '{setting.Id}' in '{other.name}' and '{setting.name}'.");
                     continue;
                 }
 
