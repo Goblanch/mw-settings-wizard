@@ -12,15 +12,35 @@ namespace MiradorWorks.Settings
     {
         const string LogPrefix = "[MiradorWorks.Settings] ";
 
+        enum NotificationKind { Changed, Applied }
+
+        readonly struct Notification
+        {
+            public Notification(NotificationKind kind, SettingDefinition setting)
+            {
+                Kind = kind;
+                Setting = setting;
+            }
+
+            public NotificationKind Kind { get; }
+            public SettingDefinition Setting { get; }
+        }
+
         readonly SettingsProfile profile;
         readonly ISettingsStorage storage;
         readonly List<SettingSlot> slots = new List<SettingSlot>();
         readonly Dictionary<SettingDefinition, SettingSlot> slotsByDefinition = new Dictionary<SettingDefinition, SettingSlot>();
+        readonly Dictionary<string, SettingSlot> slotsById = new Dictionary<string, SettingSlot>(StringComparer.Ordinal);
+        readonly List<Notification> notifications = new List<Notification>();
 
         SettingsData data;
         bool initialized;
         bool disposed;
-        int saveBatchDepth;
+
+        // Every change runs inside a batch: applies share one SettingsApplyContext,
+        // and batchges, saving and events happen once, when the outermost batch ends.
+        int batchDepth;
+        SettingsApplyContext batchApplyContext;
         bool saveRequested;
 
         public SettingsService(SettingsProfile profile, ISettingsStorage storage)
@@ -80,15 +100,24 @@ namespace MiradorWorks.Settings
                 SettingSlot slot = definition.CreateSlot();
                 slots.Add(slot);
                 slotsByDefinition.Add(definition, slot);
+                slotsById.Add(definition.Id, slot);
             }
 
             data = LoadData();
-            foreach (SettingSlot slot in slots)
-                slot.Load(data, Context);
 
-            var applyContext = new SettingsApplyContext(Context);
-            foreach (SettingSlot slot in slots)
-                ApplySafely(slot, applyContext);
+            BeginBatch();
+            try
+            {
+                foreach (SettingSlot slot in slots)
+                    slot.Load(data, Context);
+
+                foreach (SettingSlot slot in slots)
+                    ApplySafely(slot);
+            }
+            finally
+            {
+                EndBatch();
+            }
 
             initialized = true;
         }
@@ -114,42 +143,42 @@ namespace MiradorWorks.Settings
         {
             ThrowIfNotReady();
 
-            List<SettingDefinition> committed = null;
-            var applyContext = new SettingsApplyContext(Context);
-
-            foreach (SettingSlot slot in slots)
+            BeginBatch();
+            try
             {
-                if (!slot.CommitPending())
-                    continue;
+                foreach (SettingSlot slot in slots)
+                {
+                    if (!slot.CommitPending())
+                        continue;
 
-                ApplySafely(slot, applyContext);
-                (committed ??= new List<SettingDefinition>()).Add(slot.Definition);
+                    ApplySafely(slot);
+                    saveRequested = true;
+                    Notify(NotificationKind.Applied, slot.Definition);
+                }
             }
-
-            if (committed == null)
-                return;
-
-            RequestSave();
-            foreach (SettingDefinition definition in committed)
-                Raise(ValueApplied, definition, nameof(ValueApplied));
+            finally
+            {
+                EndBatch();
+            }
         }
 
         public void RevertPending()
         {
             ThrowIfNotReady();
 
-            List<SettingDefinition> reverted = null;
-            foreach (SettingSlot slot in slots)
+            BeginBatch();
+            try
             {
-                if (slot.RevertPending())
-                    (reverted ??= new List<SettingDefinition>()).Add(slot.Definition);
+                foreach (SettingSlot slot in slots)
+                {
+                    if (slot.RevertPending())
+                        Notify(NotificationKind.Changed, slot.Definition);
+                }
             }
-
-            if (reverted == null)
-                return;
-
-            foreach (SettingDefinition definition in reverted)
-                Raise(ValueChanged, definition, nameof(ValueChanged));
+            finally
+            {
+                EndBatch();
+            }
         }
 
         /// <summary>
@@ -159,7 +188,7 @@ namespace MiradorWorks.Settings
         {
             ThrowIfNotReady();
 
-            saveBatchDepth++;
+            BeginBatch();
             try
             {
                 foreach (SettingSlot slot in slots)
@@ -170,7 +199,7 @@ namespace MiradorWorks.Settings
             }
             finally
             {
-                EndSaveBatch();
+                EndBatch();
             }
         }
 
@@ -182,8 +211,11 @@ namespace MiradorWorks.Settings
             disposed = true;
             ValueChanged = null;
             ValueApplied = null;
+            Context.DisposeServices();
             slots.Clear();
             slotsByDefinition.Clear();
+            slotsById.Clear();
+            notifications.Clear();
         }
 
         internal void SetValue<T>(SettingSlot<T> slot, T value)
@@ -194,22 +226,93 @@ namespace MiradorWorks.Settings
             if (definition.AreEqual(value, slot.Current))
                 return;
 
-            if (definition.ApplyMode == ApplyMode.Immediate)
+            BeginBatch();
+            try
             {
-                slot.SetApplied(value);
-                ApplySafely(slot, new SettingsApplyContext(Context));
-                RequestSave();
-                Raise(ValueChanged, definition, nameof(ValueChanged));
-                Raise(ValueApplied, definition, nameof(ValueApplied));
+                if (definition.ApplyMode == ApplyMode.Immediate)
+                {
+                    slot.SetApplied(value);
+                    ApplySafely(slot);
+                    saveRequested = true;
+                    Notify(NotificationKind.Changed, definition);
+                    Notify(NotificationKind.Applied, definition);
+                    return;
+                }
+
+                if (definition.AreEqual(value, slot.Applied))
+                    slot.ClearPending();
+                else
+                    slot.SetPending(value);
+
+                Notify(NotificationKind.Changed, definition);
+            }
+            finally
+            {
+                EndBatch();
+            }
+        }
+
+        internal bool TryGetLoadedSlot(SettingDefinition setting, out SettingSlot slot)
+        {
+            if (setting != null && slotsByDefinition.TryGetValue(setting, out slot) && slot.IsLoaded)
+                return true;
+
+            slot = null;
+            return false;
+        }
+
+        internal bool TryGetLoadedSlot(string id, out SettingSlot slot)
+        {
+            if (id != null && slotsById.TryGetValue(id, out slot) && slot.IsLoaded)
+                return true;
+
+            slot = null;
+            return false;
+        }
+
+        void BeginBatch()
+        {
+            if (batchDepth++ == 0)
+                batchApplyContext = new SettingsApplyContext(Context);
+        }
+
+        void EndBatch()
+        {
+            if (--batchDepth > 0)
                 return;
+
+            SettingsApplyContext applyContext = batchApplyContext;
+            batchApplyContext = null;
+            applyContext.CommitBatches();
+
+            if (saveRequested)
+            {
+                saveRequested = false;
+                Save();
             }
 
-            if (definition.AreEqual(value, slot.Applied))
-                slot.ClearPending();
-            else
-                slot.SetPending(value);
+            FlushNotifications();
+        }
 
-            Raise(ValueChanged, definition, nameof(ValueChanged));
+        void Notify(NotificationKind kind, SettingDefinition setting) =>
+            notifications.Add(new Notification(kind, setting));
+
+        void FlushNotifications()
+        {
+            if (notifications.Count == 0)
+                return;
+
+            // Copy first: a handler call Set, which starts a new batch and adds notifications.
+            Notification[] toRaise = notifications.ToArray();
+            notifications.Clear();
+
+            foreach (Notification notification in toRaise)
+            {
+                if (notification.Kind == NotificationKind.Changed)
+                    Raise(ValueChanged, notification.Setting, nameof(ValueChanged));
+                else
+                    Raise(ValueApplied, notification.Setting, nameof(ValueApplied));
+            }
         }
 
         SettingsData LoadData()
@@ -233,34 +336,16 @@ namespace MiradorWorks.Settings
             return loaded;
         }
 
-        void ApplySafely(SettingSlot slot, SettingsApplyContext applyContext)
+        void ApplySafely(SettingSlot slot)
         {
             try
             {
-                slot.ApplyCurrent(applyContext);
+                slot.ApplyCurrent(batchApplyContext);
             }
             catch (Exception e)
             {
                 // One broken setting must not stop the others from applying.
                 Debug.LogError($"{LogPrefix}Applying '{slot.Definition.Id}' failed.\n{e}");
-            }
-        }
-
-        void RequestSave()
-        {
-            if (saveBatchDepth > 0)
-                saveRequested = true;
-            else
-                Save();
-        }
-
-        void EndSaveBatch()
-        {
-            saveBatchDepth--;
-            if (saveBatchDepth == 0 && saveRequested)
-            {
-                saveRequested = false;
-                Save();
             }
         }
 

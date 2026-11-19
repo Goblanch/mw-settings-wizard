@@ -10,6 +10,7 @@ namespace MiradorWorks.Settings
     {
         public abstract SettingDefinition Definition { get; }
         public bool IsSupported { get; protected set; }
+        public bool IsLoaded { get; protected set; }
         public abstract bool HasPending { get; }
 
         public abstract void Load(SettingsData data, SettingsContext context);
@@ -36,6 +37,7 @@ namespace MiradorWorks.Settings
         public SettingDefinition<T> TypedDefinition => definition;
         public override bool HasPending => hasPending;
 
+        /// <summary>What the player sees: the pending value if there is one, else the applied one.</summary>
         public T Current => hasPending ? pending : applied;
         public T Applied => applied;
 
@@ -49,8 +51,7 @@ namespace MiradorWorks.Settings
                 if (!definition.TryDeserialize(raw, out value))
                 {
                     Debug.LogWarning(
-                        $"[MiradorWorks.Setting] Saved value '{raw}' for '{definition.Id}' is invalid. Using the default."
-                    );
+                        $"[MiradorWorks.Settings] Saved value '{raw}' for '{definition.Id}' is invalid. Using the default.");
                     value = definition.GetDefault(context);
                 }
             }
@@ -61,6 +62,7 @@ namespace MiradorWorks.Settings
 
             applied = definition.Sanitize(value, context);
             ClearPending();
+            IsLoaded = true;
         }
 
         public void SetApplied(T value)
