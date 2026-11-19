@@ -23,5 +23,7 @@ namespace MiradorWorks.Settings
         public abstract bool TryDeserialize(string raw, out T value);
 
         public virtual bool AreEqual(T a, T b) => EqualityComparer<T>.Default.Equals(a, b);
+
+        internal sealed override SettingSlot CreateSlot() => new SettingSlot<T>(this);
     }
 }
