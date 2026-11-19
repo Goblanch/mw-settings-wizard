@@ -89,7 +89,7 @@ namespace MiradorWorks.Settings
 
         public override bool CommitPending()
         {
-            if (hasPending)
+            if (!hasPending)
                 return false;
 
             applied = pending;
