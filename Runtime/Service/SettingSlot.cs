@@ -4,6 +4,7 @@ namespace MiradorWorks.Settings
 {
     /// <summary>
     /// Runtime state of one setting inside the service: applied value and optional pending value.
+    /// and the last confirmed value while a confirmation is in progress.
     /// The generic subclass keeps values typed, so bools and floats are never boxed.
     /// </summary>
     internal abstract class SettingSlot
@@ -12,6 +13,7 @@ namespace MiradorWorks.Settings
         public bool IsSupported { get; protected set; }
         public bool IsLoaded { get; protected set; }
         public abstract bool HasPending { get; }
+        public abstract bool AwatingConfirmation { get; }
 
         public abstract void Load(SettingsData data, SettingsContext context);
         public abstract void ApplyCurrent(SettingsApplyContext context);
@@ -19,6 +21,13 @@ namespace MiradorWorks.Settings
         public abstract bool RevertPending();
         public abstract void WriteTo(SettingsData data);
         public abstract void ResetToDefault(SettingsService service);
+
+        /// <summary>Remembers the applied value as the last confirmed one, before it changes./// </summary>
+        public abstract void BeginConfirmation();
+
+        /// <summary>Ends the confirmation. Returns true if reverting changed the applied value./// </summary>
+        public abstract bool EndConfirmation(bool keep);
+
     }
 
     internal sealed class SettingSlot<T> : SettingSlot
@@ -27,6 +36,8 @@ namespace MiradorWorks.Settings
         T applied;
         T pending;
         bool hasPending;
+        T confirmed;
+        bool awaitingConfirmation;
 
         public SettingSlot(SettingDefinition<T> definition)
         {
@@ -36,6 +47,7 @@ namespace MiradorWorks.Settings
         public override SettingDefinition Definition => definition;
         public SettingDefinition<T> TypedDefinition => definition;
         public override bool HasPending => hasPending;
+        public override bool AwatingConfirmation => awaitingConfirmation;
 
         /// <summary>What the player sees: the pending value if there is one, else the applied one.</summary>
         public T Current => hasPending ? pending : applied;
@@ -108,8 +120,39 @@ namespace MiradorWorks.Settings
             return true;
         }
 
-        public override void WriteTo(SettingsData data) =>
-            data.Set(definition.Id, definition.Serialize(applied) ?? string.Empty);
+        public override void BeginConfirmation()
+        {
+            if (awaitingConfirmation)
+                return;
+
+            confirmed = applied;
+            awaitingConfirmation = true;
+        }
+
+        public override bool EndConfirmation(bool keep)
+        {
+            if (!awaitingConfirmation)
+                return false;
+
+            bool changed = false;
+            if (!keep)
+            {
+                changed = !definition.AreEqual(applied, confirmed);
+                applied = confirmed;
+            }
+
+            confirmed = default;
+            awaitingConfirmation = false;
+            return changed;
+        }
+
+        // While waiting confirmation, the file keeps the last confirmed value.
+        // A crash with a broken resolution must not make it permanent.
+        public override void WriteTo(SettingsData data)
+        {
+            T toSave = awaitingConfirmation ? confirmed : applied;
+            data.Set(definition.Id, definition.Serialize(toSave) ?? string.Empty);
+        }
 
         public override void ResetToDefault(SettingsService service) =>
             service.SetValue(this, definition.GetDefault(service.Context));

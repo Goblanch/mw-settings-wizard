@@ -14,6 +14,20 @@ namespace MiradorWorks.Settings
 
         public IReadOnlyList<SettingDefinition> Settings => settings;
 
+        /// <summary>
+        /// Builds a profile at runtime (tests, tools). Profiles are normally assets edited in inspector
+        /// </summary>
+        public static SettingsProfile Create(IEnumerable<SettingDefinition> settings)
+        {
+            if (settings == null)
+                throw new ArgumentNullException(nameof(settings));
+
+            var profile = CreateInstance<SettingsProfile>();
+            profile.name = "RuntimeSettingsProfile";
+            profile.settings = new List<SettingDefinition>(settings);
+            return profile;
+        }
+
         public bool TryGet(string id, out SettingDefinition setting)
         {
             if (id != null)
