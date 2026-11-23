@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.ConstrainedExecution;
 using UnityEngine;
 
 namespace MiradorWorks.Settings
@@ -11,6 +12,7 @@ namespace MiradorWorks.Settings
     public sealed class SettingsService : IDisposable
     {
         const string LogPrefix = "[MiradorWorks.Settings] ";
+        public const float DefaultConfirmationTimeoutSeconds = 15f;
 
         enum NotificationKind { Changed, Applied }
 
@@ -32,10 +34,12 @@ namespace MiradorWorks.Settings
         readonly Dictionary<SettingDefinition, SettingSlot> slotsByDefinition = new Dictionary<SettingDefinition, SettingSlot>();
         readonly Dictionary<string, SettingSlot> slotsById = new Dictionary<string, SettingSlot>(StringComparer.Ordinal);
         readonly List<Notification> notifications = new List<Notification>();
+        readonly List<SettingSlot> passConfirmationSlots = new List<SettingSlot>();
 
         SettingsData data;
         bool initialized;
         bool disposed;
+        float confirmationTimeoutSeconds = DefaultConfirmationTimeoutSeconds;
 
         // Every change runs inside a batch: applies share one SettingsApplyContext,
         // and batchges, saving and events happen once, when the outermost batch ends.
@@ -56,12 +60,35 @@ namespace MiradorWorks.Settings
         /// <summary>The value returned by Get changed (applied, pending, reverted or reset)./// </summary>
         public event Action<SettingDefinition> ValueChanged;
 
-        /// <summary>The value became the applied value and was saved. Not raised during Initialize./// </summary>
+        /// <summary>
+        /// The value became the applied value and was saved. Not raised during Initialize.
+        /// Settings that require confirmation are saved once confirmed.
+        /// </summary>
         public event Action<SettingDefinition> ValueApplied;
+
+        /// <summary>
+        /// Settings marked RequiresConfirmation changed: show a "Keep these changes?" dialog.
+        /// </summary>
+        public event Action<ConfirmationRequest> ConfirmationRequested;
 
         public SettingsProfile Profile => profile;
         public SettingsContext Context { get; }
         public bool IsInitialized => initialized && !disposed;
+
+        /// <summary>The confirmation in progress, or null./// </summary>
+        public ConfirmationRequest ActiveConfirmation { get; private set; }
+
+        public float ConfirmationTimeoutSeconds
+        {
+            get => confirmationTimeoutSeconds;
+            set
+            {
+                if (!(value > 0f) || float.IsInfinity(value))
+                    throw new ArgumentOutOfRangeException(nameof(value), "The confirmation timeout must be a positive number of seconds.");
+
+                confirmationTimeoutSeconds = value;
+            }
+        }
 
         public bool HasPendingChanges
         {
@@ -148,8 +175,13 @@ namespace MiradorWorks.Settings
             {
                 foreach (SettingSlot slot in slots)
                 {
-                    if (!slot.CommitPending())
+                    if (!slot.HasPending)
                         continue;
+
+                    if (slot.Definition.RequiresConfirmation)
+                        PrepareConfirmation(slot);
+
+                    slot.CommitPending();
 
                     ApplySafely(slot);
                     saveRequested = true;
@@ -203,19 +235,30 @@ namespace MiradorWorks.Settings
             }
         }
 
+        /// <summary>
+        /// Releases shared services. A confirmation in progress completes as not confirmed,
+        /// without reverting: the saved file already holds the last confirmed values.
+        /// </summary>
         public void Dispose()
         {
             if (disposed)
                 return;
 
             disposed = true;
+
+            ConfirmationRequest confirmation = ActiveConfirmation;
+            ActiveConfirmation = null;
+            confirmation?.MarkCompleted(false);
+
             ValueChanged = null;
             ValueApplied = null;
+            ConfirmationRequested = null;
             Context.DisposeServices();
             slots.Clear();
             slotsByDefinition.Clear();
             slotsById.Clear();
             notifications.Clear();
+            passConfirmationSlots.Clear();
         }
 
         internal void SetValue<T>(SettingSlot<T> slot, T value)
@@ -231,6 +274,9 @@ namespace MiradorWorks.Settings
             {
                 if (definition.ApplyMode == ApplyMode.Immediate)
                 {
+                    if (definition.RequiresConfirmation)
+                        PrepareConfirmation(slot);
+
                     slot.SetApplied(value);
                     ApplySafely(slot);
                     saveRequested = true;
@@ -252,6 +298,36 @@ namespace MiradorWorks.Settings
             }
         }
 
+        internal void CompleteConfirmation(ConfirmationRequest request, bool confirmed)
+        {
+            if (disposed || request.IsCompleted || request != ActiveConfirmation)
+                return;
+
+            ActiveConfirmation = null;
+
+            BeginBatch();
+            try
+            {
+                foreach (SettingSlot slot in request.Slots)
+                {
+                    if (!slot.EndConfirmation(keep: confirmed))
+                        continue;
+
+                    ApplySafely(slot);
+                    Notify(NotificationKind.Changed, slot.Definition);
+                    Notify(NotificationKind.Applied, slot.Definition);
+                }
+
+                saveRequested = true;
+            }
+            finally
+            {
+                EndBatch();
+            }
+
+            request.MarkCompleted(confirmed);
+        }
+
         internal bool TryGetLoadedSlot(SettingDefinition setting, out SettingSlot slot)
         {
             if (setting != null && slotsByDefinition.TryGetValue(setting, out slot) && slot.IsLoaded)
@@ -268,6 +344,17 @@ namespace MiradorWorks.Settings
 
             slot = null;
             return false;
+        }
+
+        // A new change thar needs confirmation replaces the one in progress: that one is reverted first
+        void PrepareConfirmation(SettingSlot slot)
+        {
+            if (ActiveConfirmation != null)
+                CompleteConfirmation(ActiveConfirmation, confirmed: false);
+
+            slot.BeginConfirmation();
+            if (!passConfirmationSlots.Contains(slot))
+                passConfirmationSlots.Add(slot);
         }
 
         void BeginBatch()
@@ -291,7 +378,25 @@ namespace MiradorWorks.Settings
                 Save();
             }
 
+            ConfirmationRequest request = CreateConfirmationRequest();
             FlushNotifications();
+
+            if (request != null && !request.IsCompleted)
+            {
+                request.StartTimer();
+                RaiseConfirmationRequested(request);
+            }
+        }
+
+        ConfirmationRequest CreateConfirmationRequest()
+        {
+            if (passConfirmationSlots.Count == 0)
+                return null;
+
+            var request = new ConfirmationRequest(this, passConfirmationSlots.ToArray(), confirmationTimeoutSeconds);
+            passConfirmationSlots.Clear();
+            ActiveConfirmation = request;
+            return request;
         }
 
         void Notify(NotificationKind kind, SettingDefinition setting) =>
@@ -312,6 +417,25 @@ namespace MiradorWorks.Settings
                     Raise(ValueChanged, notification.Setting, nameof(ValueChanged));
                 else
                     Raise(ValueApplied, notification.Setting, nameof(ValueApplied));
+            }
+        }
+
+        void RaiseConfirmationRequested(ConfirmationRequest request)
+        {
+            Action<ConfirmationRequest> handlers = ConfirmationRequested;
+            if (handlers == null)
+                return;
+
+            foreach (Delegate handler in handlers.GetInvocationList())
+            {
+                try
+                {
+                    ((Action<ConfirmationRequest>)handler)(request);
+                }
+                catch (Exception e)
+                {
+                    Debug.LogError($"{LogPrefix}A {nameof(ConfirmationRequested)} handler threw.\n{e}");
+                }
             }
         }
 
