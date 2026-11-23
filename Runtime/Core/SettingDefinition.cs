@@ -37,5 +37,10 @@ namespace MiradorWorks.Settings
         /// Creates the typed runtime state the service keeps for this setting.
         /// </summary>
         internal abstract SettingSlot CreateSlot();
+
+        /// <summary>
+        /// Whether a serialized value (e.g. from a preset) can ve read by this setting.
+        /// </summary>
+        internal abstract bool CanDeserialize(string raw);
     }
 }

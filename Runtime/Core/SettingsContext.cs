@@ -22,6 +22,9 @@ namespace MiradorWorks.Settings
             this.service = service;
         }
 
+        /// <summary>Profile of trhe settings service, or null for a standalone context./// </summary>
+        public SettingsProfile Profile => service?.Profile;
+
         /// <summary>
         /// Current value of another setting (pending id there is none).
         /// Returns false if the setting is not in the profile or has not been loaded yet:

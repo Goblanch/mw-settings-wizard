@@ -58,6 +58,25 @@ namespace MiradorWorks.Settings.Tests.EditMode
             return profile;
         }
 
+        public SettingsPreset Preset(string key, params (SettingDefinition setting, string value)[] entries)
+        {
+            var list = new List<SettingsPreset.Entry>();
+            foreach ((SettingDefinition setting, string value) in entries)
+                list.Add(new SettingsPreset.Entry(setting, value));
+
+            SettingsPreset preset = SettingsPreset.Create(key, list);
+            created.Add(preset);
+            return preset;
+        }
+
+        public SettingsProfile ProfileWithPresets(SettingDefinition[] settings, params SettingsPreset[] presets)
+        {
+            SettingsProfile profile = SettingsProfile.Create(settings, presets);
+            profile.name = "TestProfile";
+            created.Add(profile);
+            return profile;
+        }
+
         /// <summary>Edits serialized fields the way the inspector does.</summary>
         public void Configure(Object target, Action<SerializedObject> edit)
         {
