@@ -25,5 +25,7 @@ namespace MiradorWorks.Settings
         public virtual bool AreEqual(T a, T b) => EqualityComparer<T>.Default.Equals(a, b);
 
         internal sealed override SettingSlot CreateSlot() => new SettingSlot<T>(this);
+
+        internal override bool CanDeserialize(string raw) => TryDeserialize(raw, out _);
     }
 }

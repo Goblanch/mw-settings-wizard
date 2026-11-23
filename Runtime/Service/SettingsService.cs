@@ -40,6 +40,7 @@ namespace MiradorWorks.Settings
         bool initialized;
         bool disposed;
         float confirmationTimeoutSeconds = DefaultConfirmationTimeoutSeconds;
+        SettingSlot<string> presetSlot;
 
         // Every change runs inside a batch: applies share one SettingsApplyContext,
         // and batchges, saving and events happen once, when the outermost batch ends.
@@ -105,6 +106,15 @@ namespace MiradorWorks.Settings
             }
         }
 
+        public SettingsPreset ActivePreset
+        {
+            get
+            {
+                ThrowIfNotReady();
+                return FindActivePreset();
+            }
+        }
+
         /// <summary>
         /// Validates the profile, loads saved values and applies every setting.
         /// </summary>
@@ -128,6 +138,9 @@ namespace MiradorWorks.Settings
                 slots.Add(slot);
                 slotsByDefinition.Add(definition, slot);
                 slotsById.Add(definition.Id, slot);
+
+                if (definition is PresetSetting)
+                    presetSlot = (SettingSlot<string>)slot;
             }
 
             data = LoadData();
@@ -165,6 +178,20 @@ namespace MiradorWorks.Settings
         /// deferred ones stay pending until <see cref="ApplyPending"/>.
         /// </summary>
         public void Set<T>(SettingDefinition<T> setting, T value) => SetValue(GetSlot(setting), value);
+
+        /// <summary>Sets every value of the preset, following each setting's apply mode./// </summary>
+        public void ApplyPreset(SettingsPreset preset)
+        {
+            ThrowIfNotReady();
+
+            if (preset == null)
+                throw new ArgumentNullException(nameof(preset));
+
+            if (!ContainsPreset(preset))
+                throw new ArgumentException($"Preset '{preset.name}' is not part of settings profile '{profile.name}'.", nameof(preset));
+
+            ApplyPresetEntries(preset);
+        }
 
         public void ApplyPending()
         {
@@ -225,6 +252,9 @@ namespace MiradorWorks.Settings
             {
                 foreach (SettingSlot slot in slots)
                 {
+                    if (slot == presetSlot)
+                        continue;
+
                     if (category == null || slot.Definition.Category == category)
                         slot.ResetToDefault(this);
                 }
@@ -264,6 +294,16 @@ namespace MiradorWorks.Settings
         internal void SetValue<T>(SettingSlot<T> slot, T value)
         {
             SettingDefinition<T> definition = slot.TypedDefinition;
+
+            // Choosing a preset in the selector applies it; "custom" or an unknown key does nothing.
+            if (definition is PresetSetting)
+            {
+                SettingsPreset preset = FindPreset((string)(object)value);
+                if (preset != null)
+                    ApplyPresetEntries(preset);
+                return;
+            }
+
             value = definition.Sanitize(value, Context);
 
             if (definition.AreEqual(value, slot.Current))
@@ -357,6 +397,90 @@ namespace MiradorWorks.Settings
                 passConfirmationSlots.Add(slot);
         }
 
+        void ApplyPresetEntries(SettingsPreset preset)
+        {
+            BeginBatch();
+            try
+            {
+                foreach (SettingsPreset.Entry entry in preset.Entries)
+                {
+                    if (entry.Setting != null && slotsByDefinition.TryGetValue(entry.Setting, out SettingSlot slot))
+                        slot.SetFromSerialized(this, entry.Value);
+                }
+            }
+            finally
+            {
+                EndBatch();
+            }
+        }
+
+        SettingsPreset FindActivePreset()
+        {
+            foreach (SettingsPreset preset in profile.Presets)
+            {
+                // An empty preset would match anything: it is never active.
+                if (preset == null || preset.Entries.Count == 0)
+                    continue;
+
+                bool matches = true;
+                foreach (SettingsPreset.Entry entry in preset.Entries)
+                {
+                    if (entry.Setting == null
+                        || !slotsByDefinition.TryGetValue(entry.Setting, out SettingSlot slot)
+                        || !slot.CurrentEquals(entry.Value, Context))
+                    {
+                        matches = false;
+                        break;
+                    }
+                }
+
+                if (matches)
+                    return preset;
+            }
+
+            return null;
+        }
+
+        SettingsPreset FindPreset(string key)
+        {
+            if (key == null)
+                return null;
+
+            foreach (SettingsPreset preset in profile.Presets)
+            {
+                if (preset != null && string.Equals(preset.Key, key, StringComparison.Ordinal))
+                    return preset;
+            }
+
+            return null;
+        }
+
+        bool ContainsPreset(SettingsPreset preset)
+        {
+            foreach (SettingsPreset candidate in profile.Presets)
+            {
+                if (candidate == preset)
+                    return true;
+            }
+
+            return false;
+        }
+
+        void RefreshPresetSelector()
+        {
+            if (presetSlot == null)
+                return;
+
+            SettingsPreset active = FindActivePreset();
+            string key = active != null ? active.Key : PresetSetting.CustomKey;
+
+            if (string.Equals(presetSlot.Current, key, StringComparison.Ordinal))
+                return;
+
+            presetSlot.SetApplied(key);
+            Notify(NotificationKind.Changed, presetSlot.Definition);
+        }
+
         void BeginBatch()
         {
             if (batchDepth++ == 0)
@@ -371,6 +495,8 @@ namespace MiradorWorks.Settings
             SettingsApplyContext applyContext = batchApplyContext;
             batchApplyContext = null;
             applyContext.CommitBatches();
+
+            RefreshPresetSelector();
 
             if (saveRequested)
             {

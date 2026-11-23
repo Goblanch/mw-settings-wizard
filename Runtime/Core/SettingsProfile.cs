@@ -11,13 +11,15 @@ namespace MiradorWorks.Settings
     public sealed class SettingsProfile : ScriptableObject
     {
         [SerializeField] List<SettingDefinition> settings = new List<SettingDefinition>();
+        [SerializeField] List<SettingsPreset> presets = new List<SettingsPreset>();
 
         public IReadOnlyList<SettingDefinition> Settings => settings;
+        public IReadOnlyList<SettingsPreset> Presets => presets;
 
         /// <summary>
         /// Builds a profile at runtime (tests, tools). Profiles are normally assets edited in inspector
         /// </summary>
-        public static SettingsProfile Create(IEnumerable<SettingDefinition> settings)
+        public static SettingsProfile Create(IEnumerable<SettingDefinition> settings, IEnumerable<SettingsPreset> presets = null)
         {
             if (settings == null)
                 throw new ArgumentNullException(nameof(settings));
@@ -25,6 +27,7 @@ namespace MiradorWorks.Settings
             var profile = CreateInstance<SettingsProfile>();
             profile.name = "RuntimeSettingsProfile";
             profile.settings = new List<SettingDefinition>(settings);
+            profile.presets = presets != null ? new List<SettingsPreset>(presets) : new List<SettingsPreset>();
             return profile;
         }
 
@@ -55,6 +58,7 @@ namespace MiradorWorks.Settings
             var errors = new List<string>();
             var seenAssets = new HashSet<SettingDefinition>();
             var assetsById = new Dictionary<string, SettingDefinition>(StringComparer.Ordinal);
+            int presetSelectors = 0;
 
             for (int i = 0; i < settings.Count; i++)
             {
@@ -73,6 +77,9 @@ namespace MiradorWorks.Settings
                     continue;
                 }
 
+                if (setting is PresetSetting)
+                    presetSelectors++; ;
+
                 if (!SettingId.IsValid(setting.Id))
                 {
                     errors.Add(string.IsNullOrEmpty(setting.Id)
@@ -90,7 +97,51 @@ namespace MiradorWorks.Settings
                 assetsById.Add(setting.Id, setting);
             }
 
+            if (presetSelectors > 1)
+                errors.Add("Only one PresetSetting is allowed per profile.");
+
+            ValidatePresets(errors, seenAssets);
+
             return errors;
+        }
+
+        void ValidatePresets(List<string> errors, HashSet<SettingDefinition> profileSettings)
+        {
+            var keys = new HashSet<string>(StringComparer.Ordinal);
+
+            for (int i = 0; i < presets.Count; i++)
+            {
+                SettingsPreset preset = presets[i];
+                if (preset == null)
+                {
+                    errors.Add($"Preset at index {i} is empty or missing.");
+                    continue;
+                }
+
+                if (!SettingId.IsValid(preset.Key))
+                    errors.Add($"Preset '{preset.name}' has an invalid key '{preset.Key}'.");
+                else if (preset.Key == PresetSetting.CustomKey)
+                    errors.Add($"Preset '{preset.name}' uses the reserved key '{PresetSetting.CustomKey}'.");
+                else if (!keys.Add(preset.Key))
+                    errors.Add($"Duplicate preset key '{preset.Key}' in '{preset.name}'.");
+
+                var settingsInPreset = new HashSet<SettingDefinition>();
+                foreach (SettingsPreset.Entry entry in preset.Entries)
+                {
+                    SettingDefinition setting = entry.Setting;
+
+                    if (setting == null)
+                        errors.Add($"Preset '{preset.name}' has an empty setting entry.");
+                    else if (!profileSettings.Contains(setting))
+                        errors.Add($"Preset '{preset.name}' uses '{setting.name}', which is not in the profile.");
+                    else if (setting is PresetSetting)
+                        errors.Add($"Preset '{preset.name}' cannot set the preset selector.");
+                    else if (!settingsInPreset.Add(setting))
+                        errors.Add($"Preset '{preset.name}' sets '{setting.name}' more than once.");
+                    else if (!setting.CanDeserialize(entry.Value))
+                        errors.Add($"Preset '{preset.name}' has an invalid value '{entry.Value}' for '{setting.name}'.");
+                }
+            }
         }
     }
 }

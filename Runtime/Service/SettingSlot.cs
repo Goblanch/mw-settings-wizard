@@ -28,6 +28,12 @@ namespace MiradorWorks.Settings
         /// <summary>Ends the confirmation. Returns true if reverting changed the applied value./// </summary>
         public abstract bool EndConfirmation(bool keep);
 
+        /// <summary>Whether the current value equals a serialized value (after sanitizing it)./// </summary>
+        public abstract bool CurrentEquals(string raw, SettingsContext context);
+
+        /// <summary>Sets a serialized value through the service, following the apply mode./// </summary>
+        public abstract void SetFromSerialized(SettingsService service, string raw);
+
     }
 
     internal sealed class SettingSlot<T> : SettingSlot
@@ -144,6 +150,21 @@ namespace MiradorWorks.Settings
             confirmed = default;
             awaitingConfirmation = false;
             return changed;
+        }
+
+        public override bool CurrentEquals(string raw, SettingsContext context) =>
+            definition.TryDeserialize(raw, out T value)
+            && definition.AreEqual(definition.Sanitize(value, context), Current);
+
+        public override void SetFromSerialized(SettingsService service, string raw)
+        {
+            if (definition.TryDeserialize(raw, out T value))
+            {
+                service.SetValue(this, value);
+                return;
+            }
+
+            Debug.LogWarning($"[MiradorWorks.Settings] Value '{raw}' for '{definition.Id}' is invalid and was skipped.");
         }
 
         // While waiting confirmation, the file keeps the last confirmed value.
