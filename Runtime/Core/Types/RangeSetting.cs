@@ -11,6 +11,20 @@ namespace MiradorWorks.Settings
         [SerializeField] float step;
         [SerializeField] float defaultValue = 1f;
 
+        protected RangeSetting() { }
+
+        /// <summary>
+        /// Lets a subclass set its own range and default. Values saved in the asset still win:
+        /// Unity deserializes them after the constructor runs.
+        /// </summary>
+        protected RangeSetting(float min, float max, float step, float defaultValue)
+        {
+            this.min = min;
+            this.max = max;
+            this.step = step;
+            this.defaultValue = defaultValue;
+        }
+
         public float Min => min;
         public float Max => max;
         public float Step => step;
