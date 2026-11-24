@@ -1,7 +1,7 @@
 # MiradorWorks Settings — Documento de diseño
 
-> Versión del documento: 0.2 (24 nov 2026)
-> Estado: núcleo (T1) y ajustes de pantalla y calidad (T2.1–T2.2) implementados. En curso: URP (T2.3–T2.4).
+> Versión del documento: 0.3 (24 nov 2026)
+> Estado: núcleo (T1) y todos los ajustes de v0.1.0 (T2) implementados. Siguiente: Editor y sample (T3).
 > Repositorio: `mw-settings-wizard` · Package id: `com.miradorworks.settings`
 
 ## Índice
@@ -349,9 +349,9 @@ La copia se marca `HideFlags.DontSave`. `Dispose` solo restaura el pipeline si s
 | VSync | `VSyncSetting` | `display.vsync` | Immediate | `QualitySettings.vSyncCount` | Sin efecto en el Editor. |
 | Límite de FPS | `FrameRateLimitSetting` | `display.fps` | Immediate | `Application.targetFrameRate` | `rates` configurables + `unlimited` (−1, por defecto). Ignorado con VSync activo. |
 | Calidad de texturas | `TextureQualitySetting` | `graphics.textures` | Immediate | `QualitySettings.globalTextureMipmapLimit` | `full`/`half`/`quarter`/`eighth` (0–3). |
-| Render scale | (T2.4) | `graphics.renderscale` | Immediate | `UrpAssetHandle.Asset.renderScale` | |
-| Calidad de sombras | (T2.4) | `graphics.shadows` | Immediate | distancia, cascadas, resolución del shadowmap | |
-| Antialiasing (MSAA) | (T2.4) | `graphics.msaa` | Immediate | `msaaSampleCount` | |
+| Render scale | `RenderScaleSetting` | `graphics.renderscale` | Immediate | `renderScale` de la copia | Rango 0.5–2, paso 0.05, defecto 1. |
+| Calidad de sombras | `ShadowQualitySetting` | `graphics.shadows` | Immediate | `shadowDistance`, `shadowCascadeCount`, `mainLightShadowmapResolution`, `additionalLightsShadowmapResolution` de la copia | Niveles editables `off`/`low`/`medium`/`high`; `off` = distancia 0. Por defecto, el último nivel. |
+| Antialiasing (MSAA) | `MsaaSetting` | `graphics.msaa` | Immediate | `msaaSampleCount` de la copia | `off`/`2x`/`4x`/`8x`. |
 | Preset | `PresetSetting` | `graphics.preset` | — | servicio | Derivado (D13). |
 
 Los ids sugeridos son los que pondrá el menú del Editor (T3.1). Cada juego puede cambiarlos antes de su primera release; después, no.
@@ -407,7 +407,7 @@ Modo de pantalla, resolución, confirmación y VSync: el Editor no los aplica de
 
 | Id | Riesgo | Estado y mitigación |
 | --- | --- | --- |
-| R1 | Cambiar `QualitySettings` en Play Mode se queda escrito en el proyecto. | **Resuelto** (24 nov 2026). En Unity 6.6, VSync y Global Mipmap Limit vuelven a su valor al salir de Play Mode. En EditMode sí se escribiría: D27. Falta confirmarlo para `QualitySettings.renderPipeline` en la T2.4. |
+| R1 | Cambiar `QualitySettings` en Play Mode se queda escrito en el proyecto. | **Resuelto** (24 nov 2026). En Unity 6.6, VSync, Global Mipmap Limit y `QualitySettings.renderPipeline` vuelven a su valor al salir de Play Mode, y el URP Asset del proyecto no cambia (los ajustes modifican la copia). En EditMode sí se escribiría: D27. |
 | R2 | Una API de URP cambia en una versión futura. | Todo el acceso a URP está en `Runtime.URP`, con tests PlayMode por propiedad. |
 | R3 | Shader stripping: si el URP Asset original no tiene sombras, la build no incluye esas variantes y la copia no podrá activarlas. | El asset original debe tener activadas las capacidades máximas. Aviso en el Editor (T3.1) y en el README. |
 | R4 | Las sombras suaves no tienen setter público en URP 17. | Fuera de v0.1.0. |
@@ -435,8 +435,8 @@ Modo de pantalla, resolución, confirmación y VSync: el Editor no los aplica de
 | T1.7 | Presets y selector. | ✅ |
 | T2.1 | Modo de pantalla, resolución y `DisplayBatch`. | ✅ |
 | T2.2 | VSync, límite de FPS y calidad de texturas. Comprobar R1. | ✅ |
-| T2.3 | `UrpAssetHandle` y actualización de este documento. | 🔄 |
-| T2.4 | Render scale, sombras y MSAA. Comprobar R1 para el pipeline. | ⬜ |
+| T2.3 | `UrpAssetHandle` y actualización de este documento. | ✅ |
+| T2.4 | Render scale, sombras y MSAA. Comprobar R1 para el pipeline. | ✅ |
 | T3.1 | Editor: inspector del perfil, drawer tipado para valores de presets, menú "Create Default Profile", aviso de R3. | ⬜ |
 | T3.2 | Sample `BasicMenu` (UGUI) con tabla de localización. | ⬜ |
 | T3.3 | Revisión de docs y release `v0.1.0`. | ⬜ |
@@ -478,3 +478,4 @@ Modo de pantalla, resolución, confirmación y VSync: el Editor no los aplica de
 | --- | --- | --- |
 | 0.1 | 2026-11-09 | Primera versión: decisiones D1–D25, arquitectura, especificación y hoja de ruta. |
 | 0.2 | 2026-11-24 | Diseño actualizado con lo implementado en T1–T2.2: D3–D5, D7, D8, D10–D14, D16, D18 y D22 revisadas; nuevas D26–D30. Especificación reescrita según el código. R1 y R6 resueltos; nuevos R7 y R8. Estado en la hoja de ruta. |
+| 0.3 | 2026-11-24 | Ajustes de URP en la sección 5, R1 cerrado también para el pipeline, T2 completa. |
