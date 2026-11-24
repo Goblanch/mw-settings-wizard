@@ -9,7 +9,7 @@ namespace MiradorWorks.Settings.Editor
         static void CreateDefaultProfile()
         {
             string parent = SelectedFolder();
-            string uniquePath = AssetDatabase.GenerateUniqueAssetPath($"{parent}/Settings");
+            string uniquePath = AssetDatabase.GenerateUniqueAssetPath($"{parent}/Game Settings");
             string folder = AssetDatabase.GUIDToAssetPath(AssetDatabase.CreateFolder(parent, Path.GetFileName(uniquePath)));
 
             SettingsProfile profile = DefaultProfileFactory.Create(folder);
