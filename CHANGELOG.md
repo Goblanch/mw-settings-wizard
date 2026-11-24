@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Apply batches (`IApplyBatch`), committed once per apply pass so related settings reach the engine in a single call.
 - Confirmation for settings marked `RequiresConfirmation`: `ConfirmationRequest` with confirm, cancel and automatic revert after a real-time timeout. The saved file keeps the last confirmed value until then.
 - `SettingsProfile.Create` to build profiles at runtime.
-- Presets: `SettingsPreset` assets, the `PresetSetting` selector (shows the matching preset or "custom"), `ApplyPreset` and `ActivePreset` on the service, and preset validation in the profile. <!-- [T1.7] NEW -->
-- `SettingsContext.Profile`. <!-- [T1.7] NEW -->
+- Presets: `SettingsPreset` assets, the `PresetSetting` selector (shows the matching preset or "custom"), `ApplyPreset` and `ActivePreset` on the service, and preset validation in the profile.
+- `SettingsContext.Profile`.
+- Display settings: `DisplayModeSetting` (per-platform modes) and `ResolutionSetting` (display resolutions, native by default, closest match for missing ones), applied together through `DisplayBatch` in a single `Screen.SetResolution` call.
   

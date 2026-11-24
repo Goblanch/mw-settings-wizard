@@ -13,6 +13,9 @@ namespace MiradorWorks.Settings
         [Tooltip("Key of the default option. If empty or missing, the first option is used.")]
         [SerializeField] string defaultKey;
 
+        /// <summary>The key set in the inspector, for subclasses with their own default logic./// </summary>
+        protected string DefaultKey => defaultKey;
+
         /// <summary>Current options. May be generated at runtime; cache them if they are expensive to build. /// </summary>
         public abstract IReadOnlyList<ChoiceOption> GetOptions(SettingsContext context);
 
