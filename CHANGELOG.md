@@ -25,4 +25,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `SettingsContext.Profile`.
 - Display settings: `DisplayModeSetting` (per-platform modes) and `ResolutionSetting` (display resolutions, native by default, closest match for missing ones), applied together through `DisplayBatch` in a single `Screen.SetResolution` call.
 - Quality settings: `VSyncSetting`, `FrameRateLimitSetting` (configurable caps plus unlimited) and `TextureQualitySetting` (global mipmap limit).
+- `UrpAssetHandle`: runtime copy of the active URP Asset, shared per settings service, so URP settings never modify the project's asset.
+
+### Changed
+
+- Design document updated to version 0.2 to match the implementation.
   
