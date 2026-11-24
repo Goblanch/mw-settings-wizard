@@ -24,4 +24,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Presets: `SettingsPreset` assets, the `PresetSetting` selector (shows the matching preset or "custom"), `ApplyPreset` and `ActivePreset` on the service, and preset validation in the profile.
 - `SettingsContext.Profile`.
 - Display settings: `DisplayModeSetting` (per-platform modes) and `ResolutionSetting` (display resolutions, native by default, closest match for missing ones), applied together through `DisplayBatch` in a single `Screen.SetResolution` call.
+- Quality settings: `VSyncSetting`, `FrameRateLimitSetting` (configurable caps plus unlimited) and `TextureQualitySetting` (global mipmap limit).
   
