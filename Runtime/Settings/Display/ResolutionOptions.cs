@@ -79,8 +79,8 @@ namespace MiradorWorks.Settings
 
         public static string GetLabel(int width, int height, int hz, bool includeRefreshRate)
         {
-            string size = $"{width} x {height}";
-            return includeRefreshRate && hz > 0 ? $"{size} @ {hz}Hz" : size;
+            string size = $"{width} × {height}";
+            return includeRefreshRate && hz > 0 ? $"{size} @ {hz} Hz" : size;
         }
 
         /// <summary>
