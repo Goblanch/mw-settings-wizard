@@ -32,6 +32,9 @@ namespace MiradorWorks.Settings.Tests.PlayMode
             return profile;
         }
 
+        /// <summary>Overwrites serialized fields from JSON, e.g. "{\"defaultKey\":\"60\"}".</summary>
+        public void Configure(Object target, string json) => JsonUtility.FromJsonOverwrite(json, target);
+
         public void DestroyAll()
         {
             foreach (Object obj in created)
