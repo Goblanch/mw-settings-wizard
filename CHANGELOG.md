@@ -28,6 +28,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `UrpAssetHandle`: runtime copy of the active URP Asset, shared per settings service, so URP settings never modify the project's asset.
 - URP settings: `RenderScaleSetting`, `ShadowQualitySetting` (editable levels for distance, cascades and shadow map resolutions) and `MsaaSetting`. They change the runtime copy of the URP Asset.
 - `RangeSetting` constructor for subclasses with their own range and default.
+- Editor: profile inspector with validation errors and extra checks, typed drawer for preset values, and "Create > Mirador Works > Settings > Default Profile".
+- Editor extension points: `SettingsProfileCheck` and `DefaultProfileContributor`, found automatically. The URP editor assembly uses them to add its settings and to warn when a URP Asset has shadows disabled.
 
 ### Changed
 

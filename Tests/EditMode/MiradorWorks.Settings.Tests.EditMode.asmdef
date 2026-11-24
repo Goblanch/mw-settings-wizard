@@ -3,6 +3,7 @@
     "rootNamespace": "MiradorWorks.Settings.Tests.EditMode",
     "references": [
         "MiradorWorks.Settings",
+        "MiradorWorks.Settings.Editor",
         "Unity.Localization",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"
