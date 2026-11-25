@@ -16,5 +16,12 @@
     ],
     "dependencies": {
         "com.unity.localization": "1.5.9"
-    }
+    },
+    "samples": [
+        {
+            "displayName": "Basic Menu",
+            "description": "Settings menu built with UGUI and TextMeshPro, generated from a settings profile. Includes rows for toggles, sliders and dropdowns, and a confirmation dialog.",
+            "path": "Samples~/BasicMenu"
+        }
+    ]
 }
