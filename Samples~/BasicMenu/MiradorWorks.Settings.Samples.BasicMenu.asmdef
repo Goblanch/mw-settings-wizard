@@ -1,0 +1,19 @@
+{
+    "name": "MiradorWorks.Settings.Samples.BasicMenu",
+    "rootNamespace": "MiradorWorks.Settings.Samples",
+    "references": [
+        "MiradorWorks.Settings",
+        "Unity.Localization",
+        "Unity.TextMeshPro",
+        "UnityEngine.UI"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
