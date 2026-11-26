@@ -1,8 +1,9 @@
 # MiradorWorks Settings — Documento de diseño
 
-> Versión del documento: 0.3 (24 nov 2026)
-> Estado: núcleo (T1) y todos los ajustes de v0.1.0 (T2) implementados. Siguiente: Editor y sample (T3).
+> Versión del documento: 0.4 (26 nov 2026)
+> Estado: v0.1.0 completa (núcleo, ajustes, Editor, sample y documentación).
 > Repositorio: `mw-settings-wizard` · Package id: `com.miradorworks.settings`
+> Manual de uso: [Manual.es.md](Manual.es.md) · [Manual.md](Manual.md)
 
 ## Índice
 
@@ -26,6 +27,7 @@
     - [4.7 Presets](#47-presets)
     - [4.8 Persistencia](#48-persistencia)
     - [4.9 URP](#49-urp)
+    - [4.10 Editor](#410-editor)
   - [5. Ajustes incluidos en v0.1.0](#5-ajustes-incluidos-en-v010)
   - [6. Cómo añadir un ajuste nuevo](#6-cómo-añadir-un-ajuste-nuevo)
   - [7. Tests](#7-tests)
@@ -88,13 +90,16 @@ El equipo necesita un sistema de ajustes de juego reutilizable entre proyectos. 
 | D21 | Inicialización **explícita**: el composition root crea el servicio y llama a `Initialize()`. | Una automática necesitaría estado estático y no sabría qué storage usar. |
 | D22 | Sin singletons, service locator ni estado estático mutable. Se permiten `const`, `static readonly` inmutables y funciones estáticas puras. | Con Domain Reload desactivado, el estado estático sobrevive entre sesiones de Play. |
 | D23 | Nada generado en la raíz puede ser visible para Unity: `Documentation~/`, `Samples~/`, `.ci/`. | Lo que no termina en `~` o empieza por `.` se importa y genera `.meta`. |
-| D24 | UI de prueba en `Samples~/BasicMenu` con UGUI. | Ejemplo de uso; la UI final la hace el equipo. |
+| D24 | UI de prueba en `Samples~/BasicMenu` con UGUI y TextMeshPro. Híbrida: el aspecto está en prefabs editables y las filas se crean en runtime recorriendo el perfil (una por tipo base). `SettingsMenu.PrefabFor` es virtual para tipos propios. | Ejemplo de uso; la UI final la hace el equipo. Los prefabs se retocan sin código, y un ajuste nuevo aparece sin tocar la escena. |
 | D25 | Flujo `main` / `develop` / `feature/*`, Conventional Commits, CI con GameCI (EditMode y PlayMode). | Coherencia en toda la suite. |
 | D26 | Ninguna API marcada como incompatible por el analizador UAC (`AppDomain.GetAssemblies`, `Assembly.Location`…): usar `CurrentAssemblies`, `TypeCache`. | Unity carga y descarga assemblies con `AssemblyLoadContext`; esas APIs pueden devolver assemblies descargándose. |
 | D27 | Los tests que cambian el motor (`QualitySettings`, `Application`, URP) van **solo en PlayMode** y restauran los valores en el TearDown. | Unity restaura los Quality Settings al salir de Play Mode (R1). En EditMode se escribirían en el proyecto. |
 | D28 | `SettingsContext` da acceso a los valores de otros ajustes (por referencia o por id, solo si ya están cargados) y a servicios compartidos (`GetOrAddService`, destruidos con el servicio). | Ajustes que dependen de otros y objetos compartidos (la copia del URP Asset) sin singletons. |
 | D29 | Un `Apply`, un `Save` o un handler que falla se registra y no detiene al resto. Cada handler se ejecuta aislado. | Un ajuste roto no deja el juego sin configurar, y un handler de la UI no oculta el cambio a los demás. |
 | D30 | La lógica pura se separa del motor en helpers internos (`DisplayModes`, `ResolutionOptions`). | Se testea sin pantalla; lo que toca el motor se prueba en PlayMode o en build. |
+| D31 | El Editor se amplía con dos puntos de extensión que se descubren con `TypeCache`: `SettingsProfileCheck` (avisos en el inspector del perfil) y `DefaultProfileContributor` (añade ajustes, categorías y valores de preset al perfil por defecto). El Editor del core no referencia URP; `MiradorWorks.Settings.URP.Editor` usa esos puntos para sus ajustes y para el aviso de R3. | El core del Editor no depende de URP, y cada juego amplía el Editor igual que lo hace el paquete, sin registrar nada. |
+| D32 | **Create → Mirador Works → Settings → Default Profile** crea una carpeta `Game Settings` con un asset por ajuste disponible (ids y modos sugeridos), las categorías Display y Graphics, los presets Low/Medium/High y el selector, y el perfil. | Un perfil válido en un clic, que cada juego recorta. El nombre de carpeta evita confusión con otras carpetas `Settings` del proyecto. |
+| D33 | Documentación para usuarios en `Documentation~/Manual.es.md` y `Manual.md` (ES y EN). El README resume y enlaza al manual. Este documento es solo en español y explica el porqué. | El README se lee de un vistazo; el manual cubre uso y ampliación con ejemplos; el diseño es para quien mantiene el paquete.
 
 ---
 
@@ -131,8 +136,10 @@ El equipo necesita un sistema de ajustes de juego reutilizable entre proyectos. 
 | --- | --- | --- |
 | `MiradorWorks.Settings` | Core, storage, presets y ajustes independientes del pipeline. | `Unity.Localization` |
 | `MiradorWorks.Settings.URP` | `UrpAssetHandle` y ajustes de URP. Solo con `MW_SETTINGS_URP`. | Core, Localization, URP Runtime, Core RP Runtime |
-| `MiradorWorks.Settings.Editor` | Inspectores, validación y menús (T3.1). | Core, Localization |
-| `MiradorWorks.Settings.Tests.EditMode` | Tests EditMode. | Core, Localization, Test Framework |
+| `MiradorWorks.Settings.Editor` | Inspector del perfil, drawer de valores de preset, menú Default Profile y puntos de extensión (D31). | Core, Localization |
+| `MiradorWorks.Settings.URP.Editor` | Ajustes de URP en el perfil por defecto y aviso de sombras (R3). Solo Editor y con `MW_SETTINGS_URP`. | Core, URP, Editor, URP Runtime |
+| `MiradorWorks.Settings.Samples.BasicMenu` | Sample `BasicMenu` (en `Samples~`, se compila al importarlo). | Core, Localization, TextMeshPro, UGUI |
+| `MiradorWorks.Settings.Tests.EditMode` | Tests EditMode. | Core, Editor, Localization, Test Framework |
 | `MiradorWorks.Settings.Tests.PlayMode` | Tests PlayMode (URP dentro de `#if MW_SETTINGS_URP`). | Core, URP, Localization, Test Framework |
 
 ### 3.3 Estructura del repo
@@ -142,7 +149,7 @@ mw-settings-wizard/
 ├── package.json · README.md · CHANGELOG.md · LICENSE · .gitignore
 ├── .github/workflows/test.yml
 ├── .ci/TestProject/            proyecto de tests del CI (URP, Domain Reload desactivado)
-├── Documentation~/DESIGN.md
+├── Documentation~/             DESIGN.md · Manual.es.md · Manual.md
 ├── Runtime/
 │   ├── Core/                   SettingDefinition(T), SettingId, SettingCategory, SettingsProfile, SettingsContext, ApplyMode
 │   │   └── Types/              ToggleSetting, RangeSetting, ChoiceSetting, ChoiceOption
@@ -153,19 +160,22 @@ mw-settings-wizard/
 │   └── Settings/
 │       ├── Display/            DisplayModeSetting, ResolutionSetting, VSyncSetting, FrameRateLimitSetting (+ helpers)
 │       └── Graphics/           TextureQualitySetting
-├── Runtime.URP/                UrpAssetHandle (+ ajustes de URP, T2.4)
-├── Editor/                     (T3.1)
+├── Runtime.URP/                UrpAssetHandle
+│   └── Settings/               RenderScaleSetting, ShadowQualitySetting, MsaaSetting
+├── Editor/                     SettingsProfileEditor, SettingsProfileCheck, PresetEntryDrawer
+│   └── DefaultProfile/         DefaultProfileBuilder, DefaultProfileContributor, CoreSettingsContributor, factoría y menú
+├── Editor.URP/                 UrpSettingsContributor, UrpShadowsCheck
 ├── Tests/
-│   ├── EditMode/               Fakes/, Support/, Storage/, Display/, Quality/…
+│   ├── EditMode/               Fakes/, Support/, Storage/, Display/, Quality/, Editor…
 │   └── PlayMode/               Fakes/, Support/, Urp/…
-└── Samples~/BasicMenu/         (T3.2)
+└── Samples~/BasicMenu/         Scripts/, Prefabs/, BasicMenuDemo.unity, README.md
 ```
 
 ---
 
 ## 4. Especificación
 
-> Resumen de la API pública. El código es la referencia; aquí se explica el contrato.
+> Resumen de la API pública. El código es la referencia; aquí se explica el contrato. El [manual](Manual.es.md) explica cómo usarla, con ejemplos.
 
 ### 4.1 Definiciones
 
@@ -196,7 +206,7 @@ public abstract class SettingDefinition<T> : SettingDefinition
 ### 4.2 Tipos base
 
 - **`ToggleSetting`:** `defaultValue`. Se guarda como `"true"`/`"false"`.
-- **`RangeSetting`:** `min`, `max`, `step` (0 = continuo), `defaultValue`. `Sanitize` limita al rango y ajusta al paso; NaN/infinito pasa al default. Se guarda con `InvariantCulture`. `AreEqual` usa `Mathf.Approximately`.
+- **`RangeSetting`:** `min`, `max`, `step` (0 = continuo), `defaultValue`. `Sanitize` limita al rango y ajusta al paso; NaN/infinito pasa al default. Se guarda con `InvariantCulture`. `AreEqual` usa `Mathf.Approximately`. Las subclases pueden fijar su rango con el constructor protegido `RangeSetting(min, max, step, defaultValue)`.
 - **`ChoiceSetting`:** `defaultKey` (protegido como `DefaultKey`), `GetOptions(context)`, `FindClosest` sobrescribible y `IndexOf` estático. `Sanitize`: clave existente → `FindClosest` → default. Sin opciones, `IsSupported` es `false`.
 - **`ChoiceOption`:** `Key` y etiqueta `Localized(...)` (opciones fijas) o `Text(...)` (generadas, como `1920 × 1080 @ 144 Hz`).
 
@@ -338,6 +348,37 @@ public sealed class UrpAssetHandle : IDisposable
 
 La copia se marca `HideFlags.DontSave`. `Dispose` solo restaura el pipeline si sigue siendo la copia (ver R7). Los ajustes de URP comprueban `IsUrpActive` en `IsSupported`.
 
+### 4.10 Editor
+
+```csharp
+public abstract class SettingsProfileCheck
+{
+    public abstract void Collect(SettingsProfile profile, List<string> warnings);
+}
+
+public abstract class DefaultProfileContributor
+{
+    public virtual int Order { get; }                         // lower runs first; the core uses -100
+    public abstract void Contribute(DefaultProfileBuilder builder);
+}
+
+public sealed class DefaultProfileBuilder
+{
+    public const string DisplayCategory = "display", GraphicsCategory = "graphics";
+    public const string Low = "low", Medium = "medium", High = "high";
+    public string Folder { get; }
+    public SettingCategory Category(string id, int order);    // existing one or new
+    public T AddSetting<T>(string id, SettingCategory category, ApplyMode mode = ApplyMode.Immediate,
+        bool requiresConfirmation = false, Action<SerializedObject> configure = null) where T : SettingDefinition;
+    public void AddPresetValue(string presetKey, SettingDefinition setting, string value);
+}
+```
+
+- **Descubrimiento:** `TypeCache.GetTypesDerivedFrom<T>()`; se instancian las clases no abstractas con constructor sin parámetros. No hay que registrarlas.
+- **Inspector del perfil:** errores de `Validate()` en rojo y avisos de los checks en amarillo. Si un check lanza, se registra y los demás siguen (D29).
+- **Valores de preset:** el drawer muestra toggle, slider o desplegable según el tipo base del ajuste; con otros tipos, el texto serializado.
+- **Default Profile:** ver D32. El selector de preset se coloca antes de los ajustes de gráficos.
+
 ---
 
 ## 5. Ajustes incluidos en v0.1.0
@@ -354,7 +395,7 @@ La copia se marca `HideFlags.DontSave`. `Dispose` solo restaura el pipeline si s
 | Antialiasing (MSAA) | `MsaaSetting` | `graphics.msaa` | Immediate | `msaaSampleCount` de la copia | `off`/`2x`/`4x`/`8x`. |
 | Preset | `PresetSetting` | `graphics.preset` | — | servicio | Derivado (D13). |
 
-Los ids sugeridos son los que pondrá el menú del Editor (T3.1). Cada juego puede cambiarlos antes de su primera release; después, no.
+Los ids sugeridos son los que pone el menú Default Profile (D32). Cada juego puede cambiarlos antes de su primera release; después, no.
 
 ---
 
@@ -379,6 +420,8 @@ public sealed class MotionBlurSetting : ToggleSetting
 - **Si necesita otro ajuste,** se usa `context.Settings.TryGetValue(...)`.
 - **Si necesita un objeto compartido,** se usa `GetOrAddService`. Nunca un singleton.
 
+Ejemplos completos de cada caso (slider, desplegable, tipo propio, lotes, Editor): [manual, sección 9](Manual.es.md#9-crear-ajustes-propios).
+
 ---
 
 ## 7. Tests
@@ -391,7 +434,7 @@ public sealed class MotionBlurSetting : ToggleSetting
 
 ### EditMode
 
-Tipos base (serialización, sanitize, cultura), `SettingId`, perfil y validación de presets, `SettingsData` y los dos storages (con carpeta temporal), el servicio (inmediato y diferido, reset, guardado agrupado, ids desconocidos, aislamiento de fallos), contexto y lotes, presets, lógica de pantalla (`DisplayModes`, `ResolutionOptions`), opciones del límite de FPS y de las texturas.
+Tipos base (serialización, sanitize, cultura), `SettingId`, perfil y validación de presets, `SettingsData` y los dos storages (con carpeta temporal), el servicio (inmediato y diferido, reset, guardado agrupado, ids desconocidos, aislamiento de fallos), contexto y lotes, presets, lógica de pantalla (`DisplayModes`, `ResolutionOptions`), opciones del límite de FPS y de las texturas. Editor: el perfil por defecto que crea `DefaultProfileFactory` es válido y contiene los ajustes y presets esperados (en `Assets/__MwSettingsTests`, que se borra al terminar).
 
 ### PlayMode
 
@@ -399,7 +442,7 @@ Confirmación (confirmar, cancelar, timeout con `timeScale = 0`, sustitución, `
 
 ### Manual (build)
 
-Modo de pantalla, resolución, confirmación y VSync: el Editor no los aplica de verdad y el CI no tiene pantalla. Se prueban en el sandbox con un script `OnGUI` de depuración.
+Modo de pantalla, resolución, confirmación y VSync: el Editor no los aplica de verdad y el CI no tiene pantalla. Se prueban en el sandbox con un script `OnGUI` de depuración. El sample `BasicMenu` se prueba a mano importándolo en el sandbox.
 
 ---
 
@@ -409,9 +452,9 @@ Modo de pantalla, resolución, confirmación y VSync: el Editor no los aplica de
 | --- | --- | --- |
 | R1 | Cambiar `QualitySettings` en Play Mode se queda escrito en el proyecto. | **Resuelto** (24 nov 2026). En Unity 6.6, VSync, Global Mipmap Limit y `QualitySettings.renderPipeline` vuelven a su valor al salir de Play Mode, y el URP Asset del proyecto no cambia (los ajustes modifican la copia). En EditMode sí se escribiría: D27. |
 | R2 | Una API de URP cambia en una versión futura. | Todo el acceso a URP está en `Runtime.URP`, con tests PlayMode por propiedad. |
-| R3 | Shader stripping: si el URP Asset original no tiene sombras, la build no incluye esas variantes y la copia no podrá activarlas. | El asset original debe tener activadas las capacidades máximas. Aviso en el Editor (T3.1) y en el README. |
+| R3 | Shader stripping: si el URP Asset original no tiene sombras, la build no incluye esas variantes y la copia no podrá activarlas. | **Mitigado**: `UrpShadowsCheck` avisa en el inspector del perfil cuando el URP Asset tiene desactivadas las sombras de la luz principal, y el manual lo explica. El asset original debe tener activadas las capacidades máximas. |
 | R4 | Las sombras suaves no tienen setter público en URP 17. | Fuera de v0.1.0. |
-| R5 | Localization trae Addressables y requiere configurar Localization Settings. | README y sample con tabla de ejemplo. |
+| R5 | Localization trae Addressables y requiere configurar Localization Settings. | README y manual explican la configuración. Sin ella, las etiquetas vacías muestran el nombre del asset. La tabla de ejemplo del sample queda para el futuro. |
 | R6 | `Screen.SetResolution` se aplica al final del frame. | **Resuelto**: el temporizador empieza un frame después. |
 | R7 | Cambiar de nivel de calidad (`QualitySettings.SetQualityLevel`) sustituye el pipeline y la copia deja de usarse. | No cambiar de nivel con este sistema activo. `Dispose` no restaura si el pipeline ya no es la copia. A futuro: escuchar el cambio de nivel y volver a aplicar. |
 | R8 | El VSync y `Screen.SetResolution` no tienen efecto en el Editor. | Pruebas manuales en build. |
@@ -437,9 +480,9 @@ Modo de pantalla, resolución, confirmación y VSync: el Editor no los aplica de
 | T2.2 | VSync, límite de FPS y calidad de texturas. Comprobar R1. | ✅ |
 | T2.3 | `UrpAssetHandle` y actualización de este documento. | ✅ |
 | T2.4 | Render scale, sombras y MSAA. Comprobar R1 para el pipeline. | ✅ |
-| T3.1 | Editor: inspector del perfil, drawer tipado para valores de presets, menú "Create Default Profile", aviso de R3. | ⬜ |
-| T3.2 | Sample `BasicMenu` (UGUI) con tabla de localización. | ⬜ |
-| T3.3 | Revisión de docs y release `v0.1.0`. | ⬜ |
+| T3.1 | Editor: inspector del perfil, drawer tipado para valores de presets, menú "Default Profile", puntos de extensión y aviso de R3. | ✅ |
+| T3.2 | Sample `BasicMenu` (UGUI y TextMeshPro, prefabs y escena de demo). | ✅ |
+| T3.3 | Manual (ES + EN), README, este documento y release `v0.1.0`. | ✅ |
 
 ---
 
@@ -453,6 +496,7 @@ Modo de pantalla, resolución, confirmación y VSync: el Editor no los aplica de
 - **Cambio de nivel de calidad** compatible con la copia del URP Asset (R7).
 - **Consola, móvil y HDRP.**
 - **Inicialización automática** antes de la primera escena.
+- **Sample:** tabla de localización de ejemplo (R5) y una versión con UI Toolkit.
 
 ---
 
@@ -468,7 +512,9 @@ Modo de pantalla, resolución, confirmación y VSync: el Editor no los aplica de
 | Lote | Objeto que junta los cambios de varios ajustes para aplicarlos al motor de una vez. |
 | Preset | Conjunto de valores con nombre (Bajo, Alto…). |
 | Composition root | Punto del juego donde se crean y conectan los servicios. |
-| Instalación | `https://github.com/<owner>/mw-settings-wizard.git#v0.1.0` en el Package Manager. |
+| Check | Clase del Editor que añade avisos al inspector del perfil (`SettingsProfileCheck`).
+| Contributor | Clase del Editor que añade ajustes al perfil por defecto (`DefaultProfileContributor`).
+| Instalación | `https://github.com/Goblanch/mw-settings-wizard.git#v0.1.0` en el Package Manager. |
 
 ---
 
@@ -479,3 +525,4 @@ Modo de pantalla, resolución, confirmación y VSync: el Editor no los aplica de
 | 0.1 | 2026-11-09 | Primera versión: decisiones D1–D25, arquitectura, especificación y hoja de ruta. |
 | 0.2 | 2026-11-24 | Diseño actualizado con lo implementado en T1–T2.2: D3–D5, D7, D8, D10–D14, D16, D18 y D22 revisadas; nuevas D26–D30. Especificación reescrita según el código. R1 y R6 resueltos; nuevos R7 y R8. Estado en la hoja de ruta. |
 | 0.3 | 2026-11-24 | Ajustes de URP en la sección 5, R1 cerrado también para el pipeline, T2 completa. |
+| 0.4 | 2026-11-26 | Editor, sample y documentación: D24 revisada; nuevas D31–D33; sección 4.10; assemblies y estructura del repo actualizados; R3 mitigado; R5 revisado (la tabla de localización pasa a futuro); T3 completa. |
