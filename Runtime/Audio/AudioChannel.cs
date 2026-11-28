@@ -11,7 +11,7 @@ namespace MiradorWorks.Settings
         /// <summary>False when the cannel is not set up. Settings that use it are then unsupported./// </summary>
         public virtual bool IsAvailable => true;
 
-        internal void Apply(float linear01) => ApplyVolume(linear01);
+        internal void Apply(float linear01) => ApplyVolume(Mathf.Clamp01(linear01));
 
         internal void Restore() => RestoreVolume();
 

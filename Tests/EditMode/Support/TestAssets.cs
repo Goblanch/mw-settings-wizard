@@ -31,6 +31,18 @@ namespace MiradorWorks.Settings.Tests.EditMode
             return setting;
         }
 
+        // [T4.1] NEW
+        /// <summary>Any other ScriptableObject a test needs (e.g. an audio channel).</summary>
+        public T Asset<T>(string name = null) where T : ScriptableObject
+        {
+            var asset = ScriptableObject.CreateInstance<T>();
+            asset.name = name ?? typeof(T).Name;
+
+            created.Add(asset);
+            return asset;
+        }
+        // [T4.1] END
+
         public SettingCategory Category(string id)
         {
             var category = ScriptableObject.CreateInstance<SettingCategory>();

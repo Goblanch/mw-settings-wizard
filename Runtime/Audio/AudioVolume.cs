@@ -7,7 +7,7 @@ namespace MiradorWorks.Settings
     /// </summary>
     internal static class AudioVolume
     {
-        public const float SileceDecibels = -80f;
+        public const float SilenceDecibels = -80f;
 
         // 20 * log10(0.0001) = -80 dB: anything quieter is silence.
         const float MinLinear = 0.0001f;
@@ -15,7 +15,7 @@ namespace MiradorWorks.Settings
         public static float ToDecibels(float linear01)
         {
             if (float.IsNaN(linear01) || linear01 <= MinLinear)
-                return SileceDecibels;
+                return SilenceDecibels;
 
             return Mathf.Log10(Mathf.Min(linear01, 1f)) * 20f;
         }

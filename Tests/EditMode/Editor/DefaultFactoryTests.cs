@@ -42,6 +42,10 @@ namespace MiradorWorks.Settings.Tests.EditMode
         [TestCase("display.fps")]
         [TestCase("graphics.textures")]
         [TestCase("graphics.preset")]
+        // [T4.1] NEW
+        [TestCase("audio.master")]
+        [TestCase("audio.mute")]
+        // [T4.1] END
         public void IncludesTheCoreSettingsWithSuggestedIds(string id)
         {
             Assert.That(profile.TryGet(id, out _), Is.True);
@@ -64,6 +68,31 @@ namespace MiradorWorks.Settings.Tests.EditMode
 
             Assert.That(((VSyncSetting)setting).GetDefault(new SettingsContext()), Is.True);
         }
+
+        // [T4.1] NEW
+        [Test]
+        public void AudioSettings_ShareAListenerChannelSavedInTheFolder()
+        {
+            profile.TryGet("audio.master", out SettingDefinition master);
+            profile.TryGet("audio.mute", out SettingDefinition mute);
+
+            AudioChannel channel = ((VolumeSetting)master).Channel;
+
+            Assert.That(channel, Is.InstanceOf<ListenerChannel>());
+            Assert.That(((MuteSetting)mute).Channel, Is.SameAs(channel));
+            Assert.That(AssetDatabase.GetAssetPath(channel), Does.StartWith(Root + "/"));
+        }
+
+        [Test]
+        public void AudioSettings_AreNotInPresets()
+        {
+            bool inPresets = profile.Presets
+                .SelectMany(preset => preset.Entries)
+                .Any(entry => entry.Setting is IAudioChannelSetting);
+
+            Assert.That(inPresets, Is.False);
+        }
+        // [T4.1] END
 
         [Test]
         public void CreatesLowMediumHighPresetsAndOneSelector()
