@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Audio:** `AudioChannel` (where a volume goes) with `MixerParameterChannel` (exposed AudioMixer parameter, in decibels) and `ListenerChannel` (`AudioListener.volume`), plus `VolumeSetting` and `MuteSetting`. Channels are restored when the settings service is disposed.
+- **Editor:** Audio category in the Default Profile (master volume and mute on a listener channel), `DefaultProfileBuilder.CreateAsset`, and a profile warning for audio settings without a working channel.
+
 ## [0.1.0] - 2026-11-26
 
 First release.
