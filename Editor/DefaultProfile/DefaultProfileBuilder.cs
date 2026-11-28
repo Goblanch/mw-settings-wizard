@@ -14,6 +14,7 @@ namespace MiradorWorks.Settings.Editor
     {
         public const string DisplayCategory = "display";
         public const string GraphicsCategory = "graphics";
+        public const string AudioCategory = "audio";
         public const string Low = "low";
         public const string Medium = "medium";
         public const string High = "high";
@@ -75,6 +76,15 @@ namespace MiradorWorks.Settings.Editor
 
             settings.Add(setting);
             return setting;
+        }
+
+        public T CreateAsset<T>(string fileName, Action<SerializedObject> configure = null) where T : ScriptableObject
+        {
+            var asset = ScriptableObject.CreateInstance<T>();
+            if (configure != null)
+                Edit(asset, configure);
+            Save(asset, fileName);
+            return asset;
         }
 
         /// <summary>Adds a value to a preset. Presets are created only if they get at least one value.</summary>
